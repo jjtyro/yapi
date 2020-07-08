@@ -117,6 +117,7 @@ module.exports = {
     }
   },
   MOCK_SOURCE: [
+    { name: '请求域值', mock: '@reqfield' },
     { name: '字符串', mock: '@string' },
     { name: '自然数', mock: '@natural' },
     { name: '浮点数', mock: '@float' },

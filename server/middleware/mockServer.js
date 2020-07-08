@@ -6,6 +6,7 @@ const { schemaValidator } = require('../../common/utils.js');
 const _ = require('underscore');
 const Mock = require('mockjs');
 const variable = require('../../client/constants/variable.js')
+require('zone.js');
 /**
  *
  * @param {*} apiPath /user/tom
@@ -280,40 +281,47 @@ module.exports = async (ctx, next) => {
     // mock 返回值处理
     res = interfaceData.res_body;
     try {
-      if (interfaceData.res_body_type === 'json') {
-        if (interfaceData.res_body_is_json_schema === true) {
-          //json-schema
-          const schema = yapi.commons.json_parse(interfaceData.res_body);
-          res = yapi.commons.schemaToJson(schema, {
-            alwaysFakeOptionals: true
-          });
-        } else {
-          // console.log('header', ctx.request.header['content-type'].indexOf('multipart/form-data'))
-          // 处理 format-data
+      Zone.current.fork({
+        name: 'koa',
+        properties: {
+            context: ctx        
+        }
+      }).run(function() {
+        if (interfaceData.res_body_type === 'json') {
+          if (interfaceData.res_body_is_json_schema === true) {
+            //json-schema
+            const schema = yapi.commons.json_parse(interfaceData.res_body);
+            res = yapi.commons.schemaToJson(schema, {
+              alwaysFakeOptionals: true
+            });
+          } else {
+            // console.log('header', ctx.request.header['content-type'].indexOf('multipart/form-data'))
+            // 处理 format-data
 
-          if (
-            _.isString(ctx.request.header['content-type']) &&
-            ctx.request.header['content-type'].indexOf('multipart/form-data') > -1
-          ) {
-            ctx.request.body = ctx.request.body.fields;
+            if (
+              _.isString(ctx.request.header['content-type']) &&
+              ctx.request.header['content-type'].indexOf('multipart/form-data') > -1
+            ) {
+              ctx.request.body = ctx.request.body.fields;
+            }
+            // console.log('body', ctx.request.body)
+
+            res = mockExtra(yapi.commons.json_parse(interfaceData.res_body), {
+              query: ctx.request.query,
+              body: ctx.request.body,
+              params: Object.assign({}, ctx.request.query, ctx.request.body)
+            });
+            // console.log('res',res)
           }
-          // console.log('body', ctx.request.body)
 
-          res = mockExtra(yapi.commons.json_parse(interfaceData.res_body), {
-            query: ctx.request.query,
-            body: ctx.request.body,
-            params: Object.assign({}, ctx.request.query, ctx.request.body)
-          });
-          // console.log('res',res)
+          try {
+            res = Mock.mock(res);
+          } catch (e) {
+            console.log('err', e.message);
+            yapi.commons.log(e, 'error');
+          }
         }
-
-        try {
-          res = Mock.mock(res);
-        } catch (e) {
-          console.log('err', e.message);
-          yapi.commons.log(e, 'error');
-        }
-      }
+      });
 
       let context = {
         projectData: project,

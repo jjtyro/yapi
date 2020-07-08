@@ -5,11 +5,50 @@
 var strRegex = /\${([a-zA-Z]+)\.?([a-zA-Z0-9_\.]*)\}/i;
 var varSplit = '.';
 var mockSplit = '|';
+require('zone.js');
 var Mock = require('mockjs');
 Mock.Random.extend({
   timestamp: function(){
     var time = new Date().getTime() + '';
     return +time.substr(0, time.length - 3)
+  },
+  reqfield: function(field) {
+    var ctx = Zone.current.get('context') || {};
+    var context = {
+      query: ctx.request.query,
+      body: ctx.request.body,
+      params: Object.assign({}, ctx.request.query, ctx.request.body)
+    };
+    var result =  handleStr(field);
+    return result;
+
+    function handleStr(str) {
+      if (typeof str !== 'string' || str.indexOf('{') === -1 || str.indexOf('}') === -1 || str.indexOf('$') === -1) {
+        return str;
+      }
+  
+      let matchs = str.match(strRegex);
+      if(matchs){
+        let name = matchs[1] + (matchs[2]? '.' + matchs[2] : '');
+        if(!name) return str;
+        var names = name.split(varSplit);
+        var data = context;
+        
+        if(typeof context[names[0]] === undefined){
+          return str;
+        }
+        names.forEach(function (n) {
+          if (data === '') return '';
+          if (n in data) {
+            data = data[n];
+          } else {
+            data = '';
+          }
+        });
+        return data;
+      }
+      return str;
+    }
   }
 })
 
